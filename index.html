@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Housing State Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f5f2;
+  --surface: #fcfcfb;
+  --surface-2: #eeefeb;
+  --ink: #121312;
+  --ink-2: #4c4d48;
+  --muted: #6d6e68;
+  --line: #e0e1da;
+  --line-strong: #c3c4bb;
+  --focus: #1c5cab;
+  
+  /* Sequential tiers (ordinal, blue), weakest -> strongest */
+  --t1: #86b6ef; --t1-ink: #0b1a2e;
+  --t2: #5598e7; --t2-ink: #0b1a2e;
+  --t3: #256abf; --t3-ink: #ffffff;
+  --t4: #104281; --t4-ink: #ffffff;
+  --mark: #104281;
+  --mark-dim: #cfd9e6;
+
+  /* Categorical slots, fixed order */
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+  --tile-mix: 26%;
+
+  --serif: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --sans: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f100f; --surface: #1a1a19; --surface-2: #232422;
+    --ink: #f3f3ef; --ink-2: #c3c2b7; --muted: #9c9b92;
+    --line: #2c2c2a; --line-strong: #43433f; --focus: #6da7ec;
+    --t1: #184f95; --t1-ink: #ffffff;
+    --t2: #2a78d6; --t2-ink: #ffffff;
+    --t3: #6da7ec; --t3-ink: #0b1a2e;
+    --t4: #b7d3f6; --t4-ink: #0b1a2e;
+    --mark: #b7d3f6; --mark-dim: #2f3b4a;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --tile-mix: 38%;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f100f; --surface: #1a1a19; --surface-2: #232422;
+  --ink: #f3f3ef; --ink-2: #c3c2b7; --muted: #9c9b92;
+  --line: #2c2c2a; --line-strong: #43433f; --focus: #6da7ec;
+  --t1: #184f95; --t1-ink: #ffffff;
+  --t2: #2a78d6; --t2-ink: #ffffff;
+  --t3: #6da7ec; --t3-ink: #0b1a2e;
+  --t4: #b7d3f6; --t4-ink: #0b1a2e;
+  --mark: #b7d3f6; --mark-dim: #2f3b4a;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+  --tile-mix: 38%;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 15px/1.5 var(--sans);
+  padding-inline: 16px;
+  padding-block: 20px 40px;
+}
+button, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.shell {
+  max-width: 1360px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 32px;
+}
+
+/* ---------- Sidebar ---------- */
+.side { display: flex; flex-direction: column; gap: 24px; border-right: 1px solid var(--line); padding-right: 24px; }
+.brand small { display: block; color: var(--muted); font-size: 12px; }
+.brand h1 { font: 600 17px/1.3 var(--sans); margin: 6px 0 2px; }
+.brand p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.nav { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.nav button {
+  text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line);
+  padding: 12px 14px; cursor: pointer; border-radius: 0;
+}
+.nav button:hover { background: var(--surface-2); }
+.nav button[aria-current="page"] { background: var(--surface-2); font-weight: 600; }
+.nav button:disabled { color: var(--muted); cursor: default; background: none; }
+.note { background: var(--surface-2); border-radius: 8px; padding: 16px; font-size: 13px; color: var(--ink-2); }
+.note strong { display: block; color: var(--ink); font-size: 14px; margin-bottom: 4px; }
+
+/* ---------- Overview ---------- */
+.overview { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 32px; align-items: start; }
+.cards { display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; padding: 16px 18px; }
+.card h2 { font: 600 17px/1.3 var(--serif); margin: 0 0 6px; }
+.card p { margin: 0 0 10px; color: var(--ink-2); font-size: 14px; }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.legend li { display: flex; align-items: center; gap: 8px; }
+.legend .sw { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+.legend .ct { margin-left: auto; color: var(--muted); }
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 14px; margin: 0; }
+.kv dt { color: var(--ink-2); }
+.kv dd { margin: 0; font-weight: 600; text-align: right; }
+
+.map-wrap { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tilemap {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 3px;
+  max-width: 820px;
+  width: 100%;
+  margin-inline: auto;
+}
+.tile {
+  aspect-ratio: 1; border: 0; border-radius: 3px; cursor: pointer;
+  font: 600 clamp(9px, 1.6vw, 17px)/1 var(--sans); letter-spacing: .02em;
+  display: grid; place-items: center; padding: 0;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.tile:hover, .tile:focus-visible { transform: translateY(-2px); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); outline: none; }
+.tile.t1 { background: var(--t1); color: var(--t1-ink); }
+.tile.t2 { background: var(--t2); color: var(--t2-ink); }
+.tile.t3 { background: var(--t3); color: var(--t3-ink); }
+.tile.t4 { background: var(--t4); color: var(--t4-ink); }
+.hint { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+
+.ranking { max-width: 820px; width: 100%; margin: 12px auto 0; }
+.ranking-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.ranking-head h3 { margin: 0; font: 600 17px/1.3 var(--serif); }
+.linkbtn { background: none; border: 0; padding: 4px 0; color: var(--ink-2); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; font-size: 14px; }
+.rank-list { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 40px; }
+.rank-list li { break-inside: avoid; }
+.rank-list button {
+  display: grid; grid-template-columns: 2.2em 1fr auto; width: 100%; text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--line); padding: 8px 2px; cursor: pointer;
+}
+.rank-list button:hover { background: var(--surface-2); }
+.rank-list .r { color: var(--muted); }
+
+/* ---------- State view ---------- */
+.state { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 32px; align-items: start; }
+.state-left { min-width: 0; }
+.state-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; border-bottom: 1px solid var(--line-strong); padding-bottom: 12px; }
+.state-top h2 { font: 400 clamp(38px, 5vw, 60px)/1.05 var(--serif); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.state-tools { display: flex; gap: 8px; align-items: center; }
+.btn { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+.btn:hover { background: var(--surface-2); }
+select.btn { padding-right: 8px; }
+
+.metric-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: center; padding: 16px 0; }
+.big { font: 400 44px/1 var(--serif); }
+.big small { font-size: 26px; }
+.big-label { font: 600 15px/1.3 var(--serif); margin-top: 6px; display: flex; gap: 6px; align-items: center; }
+.big-label .q { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--muted); color: var(--muted); font: 600 10px/14px var(--sans); text-align: center; cursor: help; }
+.strip { width: 100%; height: 56px; display: block; overflow: visible; }
+.divider { border: 0; border-top: 1px solid var(--line-strong); margin: 8px 0 18px; }
+
+.tabs { display: flex; gap: 24px; margin-bottom: 6px; }
+.tabs button { background: none; border: 0; padding: 4px 0; font: 400 22px/1.3 var(--serif); color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+.tab-desc { color: var(--ink-2); margin: 6px 0 8px; }
+.ind { list-style: none; margin: 0; padding: 0; }
+.ind li { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.ind .v { text-align: right; font-weight: 600; }
+.ind .cmp { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); }
+.ind .cmp b { font-weight: 600; }
+.ind .cmp b { color: var(--ink-2); }
+
+.state-right { min-width: 0; border-left: 1px solid var(--line); padding-left: 32px; }
+.state-right h3 { font: 400 28px/1.2 var(--serif); margin: 0 0 4px; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.tm-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; font-size: 14px; }
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 999px; padding: 2px; background: var(--surface); }
+.seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; font-size: 13px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.crumbs { display: flex; gap: 6px; align-items: center; color: var(--ink-2); font-size: 13px; min-height: 28px; }
+.crumbs button { background: none; border: 0; padding: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; color: var(--ink-2); }
+.total { font-size: 13px; color: var(--ink-2); }
+.total b { color: var(--ink); font-size: 15px; }
+
+.treemap { position: relative; width: 100%; aspect-ratio: 5 / 5.4; max-height: 760px; }
+.tm-tile {
+  position: absolute; border: 0; padding: 8px 9px; text-align: left; overflow: hidden;
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start; justify-content: flex-start;
+  color: var(--ink); cursor: default; font-size: 13px; line-height: 1.25;
+  transition: left .35s ease, top .35s ease, width .35s ease, height .35s ease, filter .12s;
+  border-radius: 2px;
+}
+.tm-tile.drill { cursor: pointer; }
+.tm-tile.drill::after {
+  content: ""; position: absolute; right: 0; bottom: 0; width: 0; height: 0;
+  border-style: solid; border-width: 0 0 11px 11px; border-color: transparent transparent var(--c) transparent;
+}
+.tm-tile:hover, .tm-tile:focus-visible { filter: brightness(0.96); outline: 2px solid var(--c); outline-offset: -2px; }
+.tm-tile .n { font-weight: 500; }
+.tm-tile .p { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.foot { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+
+/* Tooltip */
+.tip {
+  position: fixed; z-index: 10; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px 11px; font-size: 13px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.14); max-width: 240px;
+}
+.tip .tv { font-weight: 700; font-size: 15px; }
+.tip .tl { color: var(--ink-2); }
+.tip .row { display: flex; justify-content: space-between; gap: 14px; }
+
+@media (max-width: 1100px) {
+  .overview, .state { grid-template-columns: minmax(0, 1fr); }
+  .state-right { border-left: 0; padding-left: 0; border-top: 1px solid var(--line-strong); padding-top: 20px; }
+  .cards { flex-direction: row; flex-wrap: wrap; }
+  .cards .card { flex: 1 1 260px; }
+}
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .side { border-right: 0; padding-right: 0; gap: 14px; }
+  .nav { flex-direction: row; border-top: 0; }
+  .nav button { flex: 1; border: 1px solid var(--line); text-align: center; padding: 8px; }
+  .side .note { display: none; }
+  .rank-list { columns: 1; }
+  .metric-row { grid-template-columns: 1fr; gap: 8px; }
+  .treemap { aspect-ratio: 4 / 5; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile, .tm-tile { transition: none; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <small>Mock data · as of Aug 2026</small>
+      <h1>Housing State Explorer</h1>
+      <p>How home prices and housing costs differ across the US</p>
+    </div>
+    <nav class="nav" aria-label="Views">
+      <button id="nav-us" type="button" aria-current="page">US overview</button>
+      <button id="nav-state" type="button" disabled>State detail</button>
+    </nav>
+    <div class="note">
+      <strong>About this data</strong>
+      Every figure is generated for this prototype. Prices and incomes are loosely shaped like real state levels; growth rates and spending splits are invented.
+    </div>
+  </aside>
+
+  <main>
+    <!-- Overview -->
+    <section id="view-us" class="overview" aria-label="US overview">
+      <div class="cards">
+        <div class="card">
+          <h2>Home price growth</h2>
+          <p>Change in the median sale price over the last 12 months. States are grouped into quartiles.</p>
+          <ul class="legend" id="legend"></ul>
+        </div>
+        <div class="card">
+          <h2>United States</h2>
+          <dl class="kv num" id="us-kv"></dl>
+        </div>
+      </div>
+      <div class="map-wrap">
+        <div class="tilemap" id="tilemap" role="group" aria-label="US states tile map, colored by year-over-year price growth"></div>
+        <p class="hint">Select a state to see its market indicators and where household housing dollars go.</p>
+        <div class="ranking">
+          <div class="ranking-head">
+            <h3 id="rank-title">Fastest price growth</h3>
+            <button class="linkbtn" id="rank-toggle" type="button" aria-expanded="false">Show all 51</button>
+          </div>
+          <ol class="rank-list num" id="rank-list"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- State detail -->
+    <section id="view-state" class="state" aria-label="State detail" hidden>
+      <div class="state-left">
+        <div class="state-top">
+          <h2 id="st-name">State</h2>
+          <div class="state-tools">
+            <label for="st-select" class="sr" hidden>Choose a state</label>
+            <select id="st-select" class="btn" aria-label="Choose a state"></select>
+            <button id="st-back" class="btn" type="button">All states</button>
+          </div>
+        </div>
+
+        <div class="metric-row">
+          <div>
+            <div class="big num" id="st-rank">–</div>
+            <div class="big-label">Growth rank <span class="q" title="Rank among 50 states and DC by year-over-year change in median sale price. 1 = fastest growth.">?</span></div>
+          </div>
+          <svg class="strip" id="rank-strip" role="img" aria-label="Rank position among all states"></svg>
+        </div>
+        <div class="metric-row" style="padding-top:0">
+          <div>
+            <div class="big num" id="st-yoy">–</div>
+            <div class="big-label">Price growth YoY <span class="q" title="Percent change in median sale price versus the same month a year earlier.">?</span></div>
+          </div>
+          <svg class="strip" id="yoy-bar" role="img" aria-label="Growth compared with the US average"></svg>
+        </div>
+        <hr class="divider">
+
+        <div class="tabs" role="tablist" aria-label="Indicator groups">
+          <button role="tab" id="tab-market" aria-selected="true" type="button">Market</button>
+          <button role="tab" id="tab-afford" aria-selected="false" type="button">Affordability</button>
+        </div>
+        <p class="tab-desc" id="tab-desc"></p>
+        <ul class="ind num" id="ind-list"></ul>
+      </div>
+
+      <div class="state-right">
+        <h3>Where housing dollars go</h3>
+        <p class="sub">Typical monthly housing spending per household. Select a tile with a corner mark to see what it's made of.</p>
+        <div class="tm-controls">
+          <div class="seg" role="group" aria-label="Household type">
+            <button type="button" id="hh-own" aria-pressed="true">Homeowners</button>
+            <button type="button" id="hh-rent" aria-pressed="false">Renters</button>
+          </div>
+          <div class="total num" id="tm-total"></div>
+        </div>
+        <div class="crumbs" id="crumbs"></div>
+        <div class="treemap" id="treemap"></div>
+        <p class="foot">Owner costs assume a 30-year fixed loan at the state's average rate with 20% down on the median home. Shares are of total monthly housing spending.</p>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+(() => {
+"use strict";
+
+/* ================================================================
+   1. MOCK DATA
+   Base levels are hand-set; everything else is derived with a
+   seeded random generator so the data is stable across reloads.
+   ================================================================ */
+// [code, name, gridCol, gridRow, medianPrice $k, medianIncome $k, yoy %]
+const BASE = [
+  ["ME","Maine",11,0,395,72,4.2],
+  ["AK","Alaska",0,1,355,86,2.5],["WI","Wisconsin",5,1,300,73,5.6],["VT","Vermont",9,1,390,76,4.9],["NH","New Hampshire",10,1,480,95,5.8],
+  ["WA","Washington",1,2,590,94,2.2],["ID","Idaho",2,2,455,74,-0.4],["MT","Montana",3,2,470,70,1.0],["ND","North Dakota",4,2,265,76,2.0],["MN","Minnesota",5,2,330,85,3.0],["IL","Illinois",6,2,285,80,5.4],["MI","Michigan",7,2,250,69,4.8],["NY","New York",9,2,470,82,5.9],["MA","Massachusetts",10,2,620,99,5.1],
+  ["OR","Oregon",1,3,500,80,0.3],["NV","Nevada",2,3,440,73,1.1],["WY","Wyoming",3,3,340,72,2.6],["SD","South Dakota",4,3,300,71,3.3],["IA","Iowa",5,3,220,72,3.9],["IN","Indiana",6,3,245,70,4.1],["OH","Ohio",7,3,225,68,5.0],["PA","Pennsylvania",8,3,265,74,4.6],["NJ","New Jersey",9,3,520,99,6.8],["CT","Connecticut",10,3,410,91,7.2],["RI","Rhode Island",11,3,460,82,6.5],
+  ["CA","California",1,4,770,95,1.4],["UT","Utah",2,4,520,90,0.6],["CO","Colorado",3,4,540,92,-0.9],["NE","Nebraska",4,4,265,74,3.7],["MO","Missouri",5,4,245,68,3.6],["KY","Kentucky",6,4,215,62,3.8],["WV","West Virginia",7,4,165,56,3.4],["VA","Virginia",8,4,390,89,3.9],["DC","District of Columbia",9,4,610,106,0.8],["MD","Maryland",10,4,405,98,3.2],["DE","Delaware",11,4,370,82,3.5],
+  ["AZ","Arizona",2,5,425,74,-1.2],["NM","New Mexico",3,5,305,60,2.4],["KS","Kansas",4,5,230,72,3.1],["AR","Arkansas",5,5,205,58,2.8],["TN","Tennessee",6,5,320,67,0.7],["NC","North Carolina",7,5,330,69,1.6],["SC","South Carolina",8,5,305,66,1.2],
+  ["OK","Oklahoma",3,6,205,62,2.7],["LA","Louisiana",4,6,205,58,-0.6],["MS","Mississippi",5,6,180,54,2.1],["AL","Alabama",6,6,225,62,2.3],["GA","Georgia",7,6,330,74,0.9],
+  ["HI","Hawaii",0,7,840,95,1.8],["TX","Texas",3,7,305,76,-1.6],["FL","Florida",8,7,395,71,-2.8]
+];
+
+// Effective property-tax rate (% of value/yr); default 0.95
+const TAX = { NJ:2.2, IL:2.0, CT:1.9, NH:1.8, VT:1.8, NY:1.6, TX:1.6, NE:1.6, WI:1.6, OH:1.5, IA:1.5, PA:1.4, RI:1.4, MI:1.3, KS:1.3, MA:1.1, ME:1.1, AK:1.0, MN:1.1, SD:1.1, ND:1.0, MD:1.0, HI:0.3, AL:0.4, LA:0.55, WV:0.55, SC:0.55, CO:0.5, DC:0.55, UT:0.55, AZ:0.6, NV:0.55, DE:0.55, WY:0.55, AR:0.6, TN:0.6, ID:0.6, CA:0.75 };
+// Insurance (% of value/yr); default 0.38
+const INS = { FL:1.25, LA:1.35, TX:0.95, OK:1.0, MS:0.9, AL:0.8, KS:0.8, NE:0.75, SC:0.7, AR:0.75, CO:0.6, NC:0.55 };
+// Wind/flood share of insurance
+const WIND = { FL:0.42, LA:0.45, TX:0.3, MS:0.3, AL:0.28, SC:0.3, NC:0.22, OK:0.2 };
+// Base utilities $/mo; default 360
+const UTIL = { HI:610, AK:560, CT:470, MA:460, RI:450, NH:440, VT:430, ME:420, NY:430, NJ:420, CA:400, TX:410, FL:400, GA:390 };
+// HOA $/mo (share of all owners, averaged); default 55
+const HOA = { FL:190, NV:135, AZ:115, HI:160, CO:110, VA:95, DC:140, MD:90, TX:85, NC:80, SC:85, UT:90, CA:95 };
+
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const round = (v, d = 0) => Math.round(v * 10 ** d) / 10 ** d;
+
+const STATES = BASE.map(([code, name, col, row, priceK, incomeK, yoy], i) => {
+  const rnd = mulberry32(1000 + i * 97);
+  const jitter = (spread) => (rnd() - 0.5) * 2 * spread;
+  const price = priceK * 1000;
+  const income = incomeK * 1000;
+  const rate = round(6.25 + jitter(0.25), 2);
+  const loan = price * 0.8;
+  const r = rate / 100 / 12, n = 360;
+  const pmt = loan * r / (1 - (1 + r) ** -n);
+  const interest = loan * r;
+  const principal = pmt - interest;
+
+  const taxRate = TAX[code] ?? 0.95;
+  const taxes = price * taxRate / 100 / 12;
+  const ins = price * (INS[code] ?? 0.38) / 100 / 12;
+  const windShare = WIND[code] ?? 0.06;
+  const util = (UTIL[code] ?? 360) * (1 + jitter(0.06));
+  const maint = price * (0.75 + jitter(0.1)) / 100 / 12;
+  const hoa = (HOA[code] ?? 55) * (1 + jitter(0.1));
+  const furn = 115 + price / 20000 + jitter(15);
+  const other = 45 + jitter(10);
+  const rent = 700 + price * 0.0021 + jitter(90);
+  const cold = ["AK","ND","MN","WI","MI","ME","VT","NH","MT","WY","SD","NY","MA","IL"].includes(code);
+
+  const utilKids = (scale) => [
+    { name: "Electricity", value: util * scale * (cold ? 0.36 : 0.47) },
+    { name: cold ? "Heating fuel & gas" : "Natural gas", value: util * scale * (cold ? 0.27 : 0.12) },
+    { name: "Water & sewer", value: util * scale * 0.14 },
+    { name: "Internet & phone", value: util * scale * (cold ? 0.18 : 0.22) },
+    { name: "Trash & recycling", value: util * scale * 0.05 },
+  ];
+
+  const owners = { name: "All spending", children: [
+    { name: "Mortgage", slot: 1, children: [
+      { name: "Interest", value: interest }, { name: "Principal", value: principal } ] },
+    { name: "Property taxes", slot: 2, children: [
+      { name: "County & city", value: taxes * 0.43 }, { name: "School district", value: taxes * 0.49 }, { name: "Special districts", value: taxes * 0.08 } ] },
+    { name: "Insurance", slot: 3, children: [
+      { name: "Homeowners policy", value: ins * (1 - windShare) }, { name: "Wind & flood coverage", value: ins * windShare } ] },
+    { name: "Utilities", slot: 4, children: utilKids(1) },
+    { name: "Maintenance & repairs", slot: 5, children: [
+      { name: "Routine upkeep", value: maint * 0.42 }, { name: "Major repairs", value: maint * 0.38 }, { name: cold ? "Lawn & snow" : "Lawn & landscaping", value: maint * 0.2 } ] },
+    { name: "HOA fees", slot: 6, children: [
+      { name: "Monthly dues", value: hoa * 0.88 }, { name: "Special assessments", value: hoa * 0.12 } ] },
+    { name: "Furnishings", slot: 7, children: [
+      { name: "Furniture", value: furn * 0.45 }, { name: "Appliances", value: furn * 0.33 }, { name: "Housewares & decor", value: furn * 0.22 } ] },
+    { name: "Other", slot: 8, children: [
+      { name: "Security & pest control", value: other * 0.55 }, { name: "Storage", value: other * 0.45 } ] },
+  ]};
+  const renters = { name: "All spending", children: [
+    { name: "Rent", slot: 1, value: rent },
+    { name: "Renters insurance", slot: 3, value: 16 + price / 60000 },
+    { name: "Utilities", slot: 4, children: utilKids(0.68) },
+    { name: "Furnishings", slot: 7, children: [
+      { name: "Furniture", value: furn * 0.35 }, { name: "Appliances", value: furn * 0.1 }, { name: "Housewares & decor", value: furn * 0.2 } ] },
+    { name: "Other", slot: 8, children: [
+      { name: "Parking", value: 38 + price / 25000 }, { name: "Laundry", value: 28 }, { name: "Application & pet fees", value: 22 } ] },
+  ]};
+
+  const sum = (node) => node.value ?? d3.sum(node.children, sum);
+  const ownerCost = sum(owners);
+  const renterCost = sum(renters);
+
+  return {
+    code, name, col, row, yoy,
+    price, income, rate, rent: round(rent),
+    dom: Math.max(14, Math.round(44 - yoy * 3.2 + jitter(5))),
+    supply: round(Math.max(1.2, 3.6 - yoy * 0.28 + jitter(0.4)), 1),
+    sales: round(1.5 + yoy * 0.6 + jitter(2.5), 1),
+    cuts: Math.round(Math.max(8, 24 - yoy * 2.4 + jitter(3))),
+    pti: round(price / income, 1),
+    ownerCost, renterCost,
+    ownerBurden: ownerCost * 12 / income * 100,
+    rentBurden: renterCost * 12 / (income * 0.62) * 100,
+    owners, renters,
+  };
+});
+
+// Quartile tiers by growth rank (1 = fastest)
+const ranked = [...STATES].sort((a, b) => b.yoy - a.yoy);
+ranked.forEach((s, i) => {
+  s.rank = i + 1;
+  s.tier = i < 13 ? 4 : i < 26 ? 3 : i < 39 ? 2 : 1;
+});
+const BY = Object.fromEntries(STATES.map(s => [s.code, s]));
+
+const US = {
+  yoy: round(d3.mean(STATES, s => s.yoy), 1),
+  price: d3.median(STATES, s => s.price),
+  income: d3.median(STATES, s => s.income),
+  rate: round(d3.mean(STATES, s => s.rate), 2),
+  rent: d3.median(STATES, s => s.rent),
+  dom: Math.round(d3.mean(STATES, s => s.dom)),
+  supply: round(d3.mean(STATES, s => s.supply), 1),
+  sales: round(d3.mean(STATES, s => s.sales), 1),
+  cuts: Math.round(d3.mean(STATES, s => s.cuts)),
+  pti: round(d3.median(STATES, s => s.pti), 1),
+  ownerCost: d3.median(STATES, s => s.ownerCost),
+  ownerBurden: d3.median(STATES, s => s.ownerBurden),
+  rentBurden: d3.median(STATES, s => s.rentBurden),
+};
+
+const TIERS = [
+  { t: 4, label: "Fastest growth (top 25%)" },
+  { t: 3, label: "Above median (50–75%)" },
+  { t: 2, label: "Below median (25–50%)" },
+  { t: 1, label: "Slowest or falling (bottom 25%)" },
+];
+
+/* ================================================================
+   2. FORMATTERS & TOOLTIP
+   ================================================================ */
+const fmtMoney = d3.format("$,.0f");
+const fmtK = (v) => v >= 1e6 ? "$" + d3.format(".2f")(v / 1e6) + "M" : "$" + Math.round(v / 1000) + "K";
+const fmtPct = (v, d = 1) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toFixed(d) + "%";
+const fmtShare = d3.format(".1%");
+
+const tip = document.getElementById("tip");
+function showTip(evt, rows) {
+  tip.replaceChildren();
+  rows.forEach(([cls, text]) => {
+    const el = document.createElement("div");
+    el.className = cls;
+    el.textContent = text;
+    tip.appendChild(el);
+  });
+  tip.hidden = false;
+  moveTip(evt);
+}
+function moveTip(evt) {
+  let x, y;
+  if (evt.clientX !== undefined && evt.type !== "focus") { x = evt.clientX; y = evt.clientY; }
+  else { const r = evt.target.getBoundingClientRect(); x = r.left + r.width / 2; y = r.bottom; }
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let left = x + 14, top = y + 14;
+  if (left + w > window.innerWidth - 8) left = x - w - 14;
+  if (top + h > window.innerHeight - 8) top = y - h - 14;
+  tip.style.left = Math.max(8, left) + "px";
+  tip.style.top = Math.max(8, top) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+
+/* ================================================================
+   3. OVERVIEW: legend, national card, tile map, ranking
+   ================================================================ */
+d3.select("#legend").selectAll("li").data(TIERS).join("li")
+  .call(li => {
+    li.append("span").attr("class", "sw").style("background", d => `var(--t${d.t})`);
+    li.append("span").text(d => d.label);
+    li.append("span").attr("class", "ct num").text(d => STATES.filter(s => s.tier === d.t).length);
+  });
+
+const usRows = [
+  ["Avg price growth, YoY", fmtPct(US.yoy)],
+  ["Median sale price", fmtK(US.price)],
+  ["Median rent", fmtMoney(US.rent) + "/mo"],
+  ["30-yr mortgage rate", US.rate.toFixed(2) + "%"],
+  ["States with falling prices", STATES.filter(s => s.yoy < 0).length + " of 51"],
+];
+d3.select("#us-kv").selectAll("div").data(usRows).join("div").style("display", "contents")
+  .call(g => { g.append("dt").text(d => d[0]); g.append("dd").text(d => d[1]); });
+
+d3.select("#tilemap").selectAll("button").data(STATES, d => d.code).join("button")
+  .attr("type", "button")
+  .attr("class", d => `tile t${d.tier}`)
+  .style("grid-column", d => d.col + 1)
+  .style("grid-row", d => d.row + 1)
+  .attr("aria-label", d => `${d.name}: ${fmtPct(d.yoy)} price growth, rank ${d.rank} of 51`)
+  .text(d => d.code)
+  .on("click", (e, d) => { hideTip(); openState(d.code); })
+  .on("pointerenter focus", (e, d) => showTip(e, [
+      ["tv", fmtPct(d.yoy) + " YoY"],
+      ["tl", `${d.name} · rank ${d.rank} of 51`],
+      ["tl", `Median price ${fmtK(d.price)}`] ]))
+  .on("pointermove", moveTip)
+  .on("pointerleave blur", hideTip);
+
+let showAll = false;
+function renderRanking() {
+  const rows = showAll ? ranked : ranked.slice(0, 10);
+  d3.select("#rank-title").text(showAll ? "All states by price growth" : "Fastest price growth");
+  d3.select("#rank-toggle").text(showAll ? "Show top 10" : "Show all 51").attr("aria-expanded", showAll);
+  d3.select("#rank-list").selectAll("li").data(rows, d => d.code).join("li")
+    .selectAll("button").data(d => [d]).join("button")
+    .attr("type", "button")
+    .on("click", (e, d) => openState(d.code))
+    .call(b => b.selectAll("span").data(d => [[d.rank + ".", "r"], [d.name, ""], [fmtPct(d.yoy), ""]]).join("span")
+      .attr("class", d => d[1]).text(d => d[0]));
+}
+d3.select("#rank-toggle").on("click", () => { showAll = !showAll; renderRanking(); });
+renderRanking();
+
+/* ================================================================
+   4. STATE VIEW
+   ================================================================ */
+let current = null;
+let household = "owners";
+let path = [];       // names from root to current treemap level
+let tab = "market";
+
+d3.select("#st-select").selectAll("option")
+  .data([...STATES].sort((a, b) => d3.ascending(a.name, b.name)))
+  .join("option").attr("value", d => d.code).text(d => d.name);
+d3.select("#st-select").on("change", (e) => openState(e.target.value));
+d3.select("#st-back").on("click", showOverview);
+d3.select("#nav-us").on("click", showOverview);
+d3.select("#nav-state").on("click", () => current && openState(current.code));
+
+function setNav(which) {
+  d3.select("#nav-us").attr("aria-current", which === "us" ? "page" : null);
+  d3.select("#nav-state").attr("aria-current", which === "state" ? "page" : null).property("disabled", !current);
+}
+function showOverview() {
+  document.getElementById("view-state").hidden = true;
+  document.getElementById("view-us").hidden = false;
+  setNav("us");
+  try { history.replaceState(null, "", location.pathname); } catch (_) {}
+}
+function openState(code) {
+  const s = BY[code];
+  if (!s) return;
+  const changed = s !== current;
+  current = s;
+  if (changed) path = [];
+  document.getElementById("view-us").hidden = true;
+  document.getElementById("view-state").hidden = false;
+  setNav("state");
+  try { history.replaceState(null, "", "#" + code); } catch (_) {}
+  document.getElementById("st-select").value = code;
+  d3.select("#st-name").text(s.name);
+  d3.select("#st-rank").html(null).call(el => {
+    el.append("span").text(s.rank);
+    el.append("small").text(" / 51");
+  });
+  d3.select("#st-yoy").text(fmtPct(s.yoy));
+  drawRankStrip(s);
+  drawYoyBar(s);
+  renderIndicators();
+  renderTreemap();
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+}
+
+/* Rank strip: one tick per state, ordered by rank */
+function drawRankStrip(s) {
+  const svg = d3.select("#rank-strip");
+  const W = svg.node().clientWidth || 400, H = 56;
+  svg.attr("viewBox", `0 0 ${W} ${H}`);
+  const x = d3.scaleBand().domain(d3.range(1, 52)).range([0, W]).paddingInner(0.25);
+  svg.selectAll("rect.tick").data(ranked, d => d.code).join("rect")
+    .attr("class", "tick")
+    .attr("x", d => x(d.rank)).attr("y", 22).attr("width", x.bandwidth()).attr("height", 30).attr("rx", 1)
+    .attr("fill", d => d === s ? "var(--mark)" : "var(--mark-dim)")
+    .on("pointerenter", (e, d) => showTip(e, [["tv", fmtPct(d.yoy)], ["tl", `${d.rank}. ${d.name}`]]))
+    .on("pointermove", moveTip).on("pointerleave", hideTip)
+    .on("click", (e, d) => openState(d.code))
+    .style("cursor", "pointer");
+  const cx = x(s.rank) + x.bandwidth() / 2;
+  svg.selectAll("text.lbl").data([s]).join("text").attr("class", "lbl")
+    .attr("x", Math.min(Math.max(cx, 12), W - 12)).attr("y", 14).attr("text-anchor", "middle")
+    .attr("fill", "var(--ink-2)").attr("font-size", 12).text(s.code);
+  svg.selectAll("text.end").data([["Fastest", 0, "start"], ["Slowest", W, "end"]]).join("text").attr("class", "end")
+    .attr("x", d => d[1]).attr("y", 14).attr("text-anchor", d => d[2])
+    .attr("fill", "var(--muted)").attr("font-size", 11).text(d => d[0])
+    .attr("opacity", d => Math.abs(d[1] - cx) < 60 ? 0 : 1);
+}
+
+/* YoY bar vs US average, on a scale covering every state */
+function drawYoyBar(s) {
+  const svg = d3.select("#yoy-bar");
+  const W = svg.node().clientWidth || 400, H = 56;
+  svg.attr("viewBox", `0 0 ${W} ${H}`);
+  const [lo, hi] = d3.extent(STATES, d => d.yoy);
+  const x = d3.scaleLinear().domain([Math.floor(lo), Math.ceil(hi)]).range([4, W - 44]);
+  const y0 = 24, bh = 26;
+  svg.selectAll("*").remove();
+  svg.append("rect").attr("x", x.range()[0]).attr("y", y0).attr("width", x.range()[1] - x.range()[0]).attr("height", bh)
+    .attr("fill", "var(--surface-2)").attr("rx", 2);
+  const x0 = x(0), xv = x(s.yoy);
+  svg.append("rect").attr("x", Math.min(x0, xv)).attr("y", y0).attr("width", Math.max(2, Math.abs(xv - x0))).attr("height", bh)
+    .attr("fill", `var(--t${s.tier})`).attr("rx", 2);
+  svg.append("line").attr("x1", x0).attr("x2", x0).attr("y1", y0 - 3).attr("y2", y0 + bh + 3)
+    .attr("stroke", "var(--line-strong)");
+  svg.append("text").attr("x", x0).attr("y", H).attr("text-anchor", "middle").attr("font-size", 10).attr("fill", "var(--muted)").text("0%");
+  const xu = x(US.yoy);
+  svg.append("line").attr("x1", xu).attr("x2", xu).attr("y1", y0 - 6).attr("y2", y0 + bh + 2)
+    .attr("stroke", "var(--ink)").attr("stroke-width", 1.5);
+  svg.append("text").attr("x", xu).attr("y", y0 - 10).attr("text-anchor", "middle").attr("font-size", 12).attr("fill", "var(--ink)")
+    .text(`US avg: ${fmtPct(US.yoy)}`);
+}
+
+/* Indicators list */
+const IND = {
+  market: {
+    desc: s => `Sale and listing activity in ${s.name} over the last 12 months.`,
+    rows: [
+      { label: "Median sale price", get: s => s.price, fmt: fmtK, us: US.price, kind: "ratio" },
+      { label: "Price growth, year over year", get: s => s.yoy, fmt: v => fmtPct(v), us: US.yoy, kind: "pts" },
+      { label: "Median days on market", get: s => s.dom, fmt: v => v + " days", us: US.dom, kind: "abs", unit: " days" },
+      { label: "Months of supply", get: s => s.supply, fmt: v => v.toFixed(1), us: US.supply, kind: "abs", unit: "" },
+      { label: "Home sales, year over year", get: s => s.sales, fmt: v => fmtPct(v), us: US.sales, kind: "pts" },
+      { label: "Listings with a price cut", get: s => s.cuts, fmt: v => v + "%", us: US.cuts, kind: "pts" },
+      { label: "Average 30-yr mortgage rate", get: s => s.rate, fmt: v => v.toFixed(2) + "%", us: US.rate, kind: "pts2" },
+    ],
+  },
+  afford: {
+    desc: s => `What housing costs a typical household in ${s.name}.`,
+    rows: [
+      { label: "Median household income", get: s => s.income, fmt: fmtK, us: US.income, kind: "ratio" },
+      { label: "Price-to-income ratio", get: s => s.pti, fmt: v => v.toFixed(1) + "×", us: US.pti, kind: "abs", unit: "×" },
+      { label: "Monthly owner cost (new buyer)", get: s => s.ownerCost, fmt: v => fmtMoney(v), us: US.ownerCost, kind: "ratio" },
+      { label: "Median rent", get: s => s.rent, fmt: v => fmtMoney(v), us: US.rent, kind: "ratio" },
+      { label: "Owner cost as share of income", get: s => s.ownerBurden, fmt: v => v.toFixed(0) + "%", us: US.ownerBurden, kind: "pts0" },
+      { label: "Rent as share of renter income", get: s => s.rentBurden, fmt: v => v.toFixed(0) + "%", us: US.rentBurden, kind: "pts0" },
+    ],
+  },
+};
+function compare(row, v) {
+  const d = v - row.us;
+  if (row.kind === "ratio") {
+    const r = v / row.us;
+    if (Math.abs(r - 1) < 0.02) return ["", "about the US median"];
+    return [r > 1 ? "up" : "down", `${r > 1 ? "▲" : "▼"} ${r.toFixed(2)}× the US median`];
+  }
+  const dec = row.kind === "pts2" ? 2 : row.kind === "pts0" ? 0 : 1;
+  if (Math.abs(d) < 10 ** -dec / 2) return ["", "same as the US"];
+  const unit = row.kind.startsWith("pts") ? " pts" : row.unit;
+  const txt = (d > 0 ? "+" : "−") + Math.abs(d).toFixed(dec) + unit;
+  return [d > 0 ? "up" : "down", `${d > 0 ? "▲" : "▼"} ${txt} vs US`];
+}
+function renderIndicators() {
+  const s = current, g = IND[tab];
+  d3.select("#tab-market").attr("aria-selected", tab === "market");
+  d3.select("#tab-afford").attr("aria-selected", tab === "afford");
+  d3.select("#tab-desc").text(g.desc(s));
+  d3.select("#ind-list").selectAll("li").data(g.rows, d => d.label).join("li")
+    .call(li => {
+      li.selectAll("*").remove();
+      li.append("span").text(d => d.label);
+      li.append("span").attr("class", "v").text(d => d.fmt(d.get(s)));
+      const c = li.append("span").attr("class", "cmp");
+      c.each(function (d) {
+        const [dir, text] = compare(d, d.get(s));
+        d3.select(this).append("b").attr("class", dir).text(text);
+        d3.select(this).append("span").text(`  ·  US ${d.fmt(d.us)}`);
+      });
+    });
+}
+d3.select("#tab-market").on("click", () => { tab = "market"; renderIndicators(); });
+d3.select("#tab-afford").on("click", () => { tab = "afford"; renderIndicators(); });
+
+/* Treemap with drill-down */
+function setHousehold(h) {
+  household = h; path = [];
+  d3.select("#hh-own").attr("aria-pressed", h === "owners");
+  d3.select("#hh-rent").attr("aria-pressed", h === "renters");
+  renderTreemap();
+}
+d3.select("#hh-own").on("click", () => setHousehold("owners"));
+d3.select("#hh-rent").on("click", () => setHousehold("renters"));
+
+function renderTreemap() {
+  const s = current;
+  const tree = s[household];
+  const root = d3.hierarchy(tree).sum(d => d.children ? 0 : d.value);
+  const grand = root.value;
+
+  // Walk to current level
+  let node = root;
+  for (const name of path) {
+    const next = node.children?.find(c => c.data.name === name);
+    if (!next) { path = []; node = root; break; }
+    node = next;
+  }
+  const slot = node.depth === 0 ? null : node.ancestors().find(a => a.depth === 1).data.slot;
+
+  d3.select("#tm-total").html(null).call(el => {
+    el.append("span").text(node.depth === 0 ? "Total " : node.data.name + " ");
+    el.append("b").text(fmtMoney(node.value) + "/mo");
+  });
+
+  // Breadcrumbs
+  const crumbs = d3.select("#crumbs").html(null);
+  if (node.depth > 0) {
+    crumbs.append("button").attr("type", "button").text("All spending").on("click", () => { path = []; renderTreemap(); });
+    path.forEach((name, i) => {
+      crumbs.append("span").attr("aria-hidden", "true").text("›");
+      if (i === path.length - 1) crumbs.append("span").text(name);
+      else crumbs.append("button").attr("type", "button").text(name).on("click", () => { path = path.slice(0, i + 1); renderTreemap(); });
+    });
+  } else {
+    crumbs.append("span").text(household === "owners" ? "Recent buyer with a mortgage" : "Renting household");
+  }
+
+  const box = document.getElementById("treemap");
+  const W = box.clientWidth, H = box.clientHeight;
+  const sub = d3.hierarchy({ children: node.children.map(c => ({ node: c })) })
+    .sum(d => d.node ? d.node.value : 0)
+    .sort((a, b) => b.value - a.value);
+  d3.treemap().size([W, H]).paddingInner(2).tile(d3.treemapSquarify.ratio(1.2)).round(true)(sub);
+
+  const leaves = sub.leaves();
+  d3.select(box).selectAll("button.tm-tile").data(leaves, d => (node.depth ? node.data.name + "/" : "") + d.data.node.data.name)
+    .join(enter => enter.append("button").attr("type", "button").attr("class", "tm-tile")
+      .style("left", d => d.x0 + "px").style("top", d => d.y0 + "px")
+      .style("width", d => (d.x1 - d.x0) + "px").style("height", d => (d.y1 - d.y0) + "px"))
+    .each(function (d, i) {
+      const n = d.data.node;
+      const slotN = slot ?? n.data.slot;
+      const drill = !!n.children;
+      const w = d.x1 - d.x0, h = d.y1 - d.y0;
+      const el = d3.select(this);
+      const col = `var(--s${slotN})`;
+      // Within a drilled category, vary the tint so siblings stay separable
+      const mix = slot ? `calc(var(--tile-mix) + ${Math.max(0, 22 - i * 6)}%)` : "var(--tile-mix)";
+      el.classed("drill", drill)
+        .style("--c", col)
+        .style("background", `color-mix(in oklab, ${col} ${mix}, var(--surface))`)
+        .style("box-shadow", `inset 0 3px 0 ${col}`)
+        .style("left", d.x0 + "px").style("top", d.y0 + "px")
+        .style("width", w + "px").style("height", h + "px")
+        .attr("tabindex", 0)
+        .attr("aria-label", `${n.data.name}: ${fmtMoney(n.value)} per month, ${fmtShare(n.value / grand)} of total${drill ? ". Select to see breakdown" : ""}`);
+      el.selectAll("*").remove();
+      if (w > 64 && h > 40) {
+        el.append("span").attr("class", "n").text(n.data.name);
+        el.append("span").attr("class", "p").text(`${fmtShare(n.value / grand)} · ${fmtMoney(n.value)}`);
+      } else if (w > 40 && h > 22) {
+        el.append("span").attr("class", "p").text(fmtShare(n.value / grand));
+      }
+    })
+    .on("click", (e, d) => {
+      if (!d.data.node.children) return;
+      hideTip();
+      path = d.data.node.ancestors().reverse().slice(1).map(a => a.data.name);
+      renderTreemap();
+    })
+    .on("pointerenter focus", (e, d) => {
+      const n = d.data.node;
+      showTip(e, [["tv", fmtMoney(n.value) + " / month"], ["tl", n.data.name],
+        ["tl", `${fmtShare(n.value / grand)} of all housing spending`]]);
+    })
+    .on("pointermove", moveTip)
+    .on("pointerleave blur", hideTip);
+}
+
+/* Redraw size-dependent charts on resize */
+let rz;
+new ResizeObserver(() => {
+  clearTimeout(rz);
+  rz = setTimeout(() => {
+    if (current && !document.getElementById("view-state").hidden) {
+      drawRankStrip(current); drawYoyBar(current); renderTreemap();
+    }
+  }, 80);
+}).observe(document.body);
+
+/* Deep link: #WA opens Washington */
+const start = (location.hash || "").slice(1).toUpperCase();
+if (BY[start]) openState(start);
+})();
+</script>
+</body>
+</html>
