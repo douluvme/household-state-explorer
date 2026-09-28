@@ -18,6 +18,13 @@ so it stays the same on every load.
 Open `index.html` in a browser. No build step or server is needed. D3 loads from cdnjs,
 and fonts load from Google Fonts.
 
+## Hosting on GitHub Pages
+
+The repo is ready to be served as-is: `index.html` is at the root, and `.nojekyll`
+tells Pages to skip its Jekyll build. In **Settings → Pages**, set **Source** to
+*Deploy from a branch*, then pick **main** and **/ (root)**. The site appears at
+`https://douluvme.github.io/household-state-explorer/`.
+
 Deep links work with a state code in the URL fragment, for example `index.html#WA`.
 
 ## Tech stack
